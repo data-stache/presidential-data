@@ -10,40 +10,21 @@ options(scipen = 999)
 
 
 # Master Variables -------------------------------------------------------------
-RUN_DATE <- Sys.Date()
-CURRENT_CYCLE <- 2024
-
 # Graph Colors
 PARTY_COL <- c('darkblue', 'red', 'green4')
 PARTY_LEV <- c('dem', 'rep', 'other')
-
 
 # State Presidential Election Data ---------------------------------------------
 # Load Election Results since 1976
 pres_results_prior <- read.csv("data/potus_results_76_20_tidy.csv", stringsAsFactors = FALSE, header = TRUE) %>% 
   # Remove X Column - not sure why it shows up
   select(-X) %>%
+  # Filter 2020 data
+  filter(!cycle == 2020) %>%
   # Arrange by election year, then by state
   arrange(cycle, state) %>%
   # Make Party a factor for aesthetic mappings / easier maths
   mutate(party = factor(party, levels = PARTY_LEV))
-
-# Election Summary Spread Statistics
-pres_results_prior %>%
-  group_by(cycle, state) %>%
-  mutate(spread = vote_share[2] - vote_share[1]) %>%
-  slice(1) %>%
-  ungroup() %>%
-  group_by(state) %>%
-  select(cycle, state, spread) %>%
-  summarize(mean = mean(spread, na.rm = TRUE),
-            sd = sd(spread, na.rm = TRUE)) %>%
-  mutate(mean_mean = mean(mean),
-         mean_sd = mean(sd)) %>%
-  arrange(sd) %>%
-  kable()
-
-save(pres_results_prior, file = 'rda/pres_results_prior.rda')
 
 
 
@@ -61,18 +42,18 @@ state_party_fit <- map_df(STATES, function(ST) {
     
     data <- data.frame(state = paste(ST),
                        party = paste(PY),
-                       cycle = 2024)
+                       cycle = 2020)
     
     pred <- predict.lm(fit, data, se.fit = TRUE)
     
     data.frame(state = paste(ST),
-               cycle = 2024,
+               cycle = 2020,
                party = paste(PY),
                pred_vote_share = pred$fit,
                pred_se = pred$se.fit,
                pred_df = pred$df,
                pred_res = pred$residual.scale)
-})
+  })
 })
 
 # Clear Row Names
@@ -80,24 +61,22 @@ row.names(state_party_fit) <- c()
 
 head(state_party_fit)
 
+state_party_fit %>%
+  filter(state == 'Arizona')
+
 # Prior Summary Stats
 modeled_EV_state_outcome_party <- state_party_fit %>%
-  mutate(run_date = RUN_DATE,
-         party = factor(party, levels = PARTY_LEV),
+  mutate(party = factor(party, levels = PARTY_LEV),
          vote_share_mu = pred_vote_share,
          # 90% Confidence Interval, T-Test Z Score
          vote_share_z = qt(0.95, pred_df),
          vote_share_t_dist = vote_share_z * pred_se,
          vote_share_start = vote_share_mu - vote_share_t_dist,
          vote_share_end = vote_share_mu + vote_share_t_dist,
-         cycle = 2024) %>%
-  select(run_date, cycle, state, party, vote_share_mu, vote_share_se = pred_se, vote_share_t_dist, vote_share_start, vote_share_end, vote_share_z)
+         cycle = 2020) %>%
+  select(cycle, state, party, vote_share_mu, vote_share_se = pred_se, vote_share_t_dist, vote_share_start, vote_share_end, vote_share_z)
 
 head(modeled_EV_state_outcome_party)
-
-save(modeled_EV_state_outcome_party, file = 'rda/modeled_EV_state_outcome_party.rda')
-
-write.csv(modeled_EV_state_outcome_party, file = 'out/modeled_EV_state_outcome_party.csv')
 
 
 
@@ -113,19 +92,19 @@ state_fit <- map_df(STATES, function(ST) {
     slice(1) %>%
     select(state, cycle, spread) %>%
     lm(spread ~ cycle, data = .)
-    
+  
   data <- data.frame(state = paste(ST),
-                     cycle = 2024)
-    
+                     cycle = 2020)
+  
   pred <- predict.lm(fit, data, se.fit = TRUE)
-    
+  
   data.frame(state = paste(ST),
-             cycle = 2024,
+             cycle = 2020,
              pred_vote_share = pred$fit,
              pred_se = pred$se.fit,
              pred_df = pred$df,
              pred_res = pred$residual.scale)
-  })
+})
 
 # Clear Row Names
 row.names(state_fit) <- c()
@@ -134,44 +113,38 @@ head(state_fit)
 
 # Prior Summary Stats
 modeled_EV_state_outcome_spread <- state_fit %>%
-  mutate(run_date = RUN_DATE,
-         spread_mu = pred_vote_share,
-         # 90% Confidence Interval, T-Test Z Score
+  mutate(spread_mu = pred_vote_share,
+         # 80% Confidence Interval, T-Test Z Score
          spread_z = qt(0.95, pred_df),
          spread_t_dist = spread_z * pred_se,
          spread_start = spread_mu - spread_t_dist,
          spread_end = spread_mu + spread_t_dist,
-         cycle = 2024) %>%
-  select(run_date, cycle, state, spread_mu, spread_se = pred_se, spread_t_dist, spread_start, spread_end, spread_z)
+         cycle = 2020) %>%
+  select(cycle, state, spread_mu, spread_se = pred_se, spread_t_dist, spread_start, spread_end, spread_z)
 
 head(modeled_EV_state_outcome_spread)
-
-save(modeled_EV_state_outcome_spread, file = 'rda/modeled_EV_state_outcome_spread.rda')
-
-write.csv(modeled_EV_state_outcome_spread, file = 'out/modeled_EV_state_outcome_spread.csv')
 
 
 
 # Pooled Spread - CURRENTLY THE USED VALUE IN FUTURE MODELS --------------------
 modeled_EV_state_spreads <- modeled_EV_state_outcome_party %>%
   group_by(state) %>%
-  summarize(run_date, RUN_DATE,
-            spread_mu = vote_share_mu[2] - vote_share_mu[1],
-            spread_se = sqrt((vote_share_se[1]^2 + vote_share_se[2]^2)),
+  summarize(spread_mu = vote_share_mu[2] - vote_share_mu[1],
+            # Average SE
+            spread_se = sqrt((vote_share_se[1]^2 + vote_share_se[2]^2) / 2),
             spread_z = vote_share_z[1],
             spread_t_dist = spread_z * spread_se,
             spread_start = spread_mu - spread_t_dist,
             spread_end = spread_mu + spread_t_dist,
-            cycle = 2024) %>%
-  select(run_date, cycle, state, spread_mu, spread_se, spread_t_dist, spread_start, spread_end, spread_z)
+            cycle = 2020) %>%
+  select(cycle, state, spread_mu, spread_se, spread_t_dist, spread_start, spread_end, spread_z)
+
+modeled_EV_state_spreads %>%
+  filter(state == 'Arizona')
 
 head(modeled_EV_state_spreads)
 
-save(modeled_EV_state_spreads, file = 'rda/modeled_EV_state_spreads.rda')
-
-write.csv(modeled_EV_state_spreads, file = 'out/modeled_EV_state_spreads.csv')
-
-
+modeled_EV_state_spreads_c2020 <- modeled_EV_state_spreads
 
 # Correlate States to National Spread Trend ------------------------------------
 # Get National Party Voter Share
@@ -188,14 +161,12 @@ dat_STATE_PARTY <- pres_results_prior %>%
 national_state_party_correlation <- dat_STATE_PARTY %>%
   left_join(dat_NAT_PARTY) %>%
   group_by(state, party) %>%
-  summarize(national_correlation = cor(vote_share, nat_vote_share)) %>%
-  mutate(run_date = RUN_DATE) %>%
-  select(run_date, state, party, national_correlation)
+  summarize(national_correlation = cor(vote_share, nat_vote_share))
 
 # Visualize
 dat_STATE_PARTY %>%
   left_join(dat_NAT_PARTY) %>%
-#  filter(party == 'rep') %>%
+  #  filter(party == 'rep') %>%
   ggplot(aes(x = cycle, color = party)) +
   geom_line(aes(y = vote_share)) +
   geom_point(aes(y = vote_share)) +
@@ -210,10 +181,6 @@ national_state_party_correlation %>%
 
 head(national_state_party_correlation)
 
-save(national_state_party_correlation, file = 'rda/national_state_party_correlation.rda')
-
-write.csv(national_state_party_correlation, file = 'out/national_state_party_correlation.csv')
-
 # Join National Correlation with State Prior
 modeled_EV_state_outcome_party <- modeled_EV_state_outcome_party %>%
   left_join(national_state_party_correlation) %>%
@@ -221,7 +188,3 @@ modeled_EV_state_outcome_party <- modeled_EV_state_outcome_party %>%
   mutate(national_correlation = ifelse(is.na(national_correlation), 1, national_correlation))
 
 head(modeled_EV_state_outcome_party)
-
-save(modeled_EV_state_outcome_party, file = 'rda/modeled_EV_state_outcome_party.rda')
-
-write.csv(modeled_EV_state_outcome_party, file = 'out/modeled_EV_state_outcome_party.csv')
