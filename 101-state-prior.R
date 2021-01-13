@@ -1,9 +1,10 @@
 {# Libraries
-  library(tidyverse)
-  library(tidylog)
   library(lubridate)
   library(broom)
   library(knitr)
+  library(Hmisc)
+  library(tidyverse)
+  library(tidylog)
   load("/Users/andrewgriffin/projects/zConstants/rda/theme_DataStache.rda") # GGPlot Theme
 }
 options(scipen = 999)
@@ -26,7 +27,11 @@ pres_results_prior <- read.csv("data/potus_results_76_20_tidy.csv", stringsAsFac
   # Arrange by election year, then by state
   arrange(cycle, state) %>%
   # Make Party a factor for aesthetic mappings / easier maths
-  mutate(party = factor(party, levels = PARTY_LEV))
+  mutate(party = factor(party, levels = PARTY_LEV),
+         cycle_weight = (CURRENT_CYCLE - cycle) / 4,
+         cycle_weight = .5 ^ ((cycle_weight - 1) / 3))
+
+pres_results_prior <- pres_results_prior[, c(1, 12, 2:11)]
 
 # Election Summary Spread Statistics
 pres_results_prior %>%
@@ -55,9 +60,9 @@ PARTIES <- unique(pres_results_prior$party)
 state_party_fit <- map_df(STATES, function(ST) {
   map_df(PARTIES, function(PY) {
     fit <- pres_results_prior %>%
-      select(state, cycle, party, vote_share) %>%
+      select(state, cycle, party, vote_share, cycle_weight) %>%
       filter(state == ST & party == PY) %>%
-      lm(vote_share ~ cycle, data = .)
+      lm(vote_share ~ cycle, weights = cycle_weight, data = .)
     
     data <- data.frame(state = paste(ST),
                        party = paste(PY),
@@ -111,8 +116,8 @@ state_fit <- map_df(STATES, function(ST) {
     group_by(cycle) %>%
     mutate(spread = vote_share[2] - vote_share[1]) %>%
     slice(1) %>%
-    select(state, cycle, spread) %>%
-    lm(spread ~ cycle, data = .)
+    select(state, cycle, spread, cycle_weight) %>%
+    lm(spread ~ cycle, weights = cycle_weight, data = .)
     
   data <- data.frame(state = paste(ST),
                      cycle = 2024)

@@ -87,18 +87,19 @@ pres_results_prior %>%
 # Visualize Spread Trends (Dem vs Rep Only)
 pres_results_prior %>%
   group_by(cycle, state) %>%
-  summarize(spread = vote_share[2] - vote_share[1]) %>%
+  summarize(spread = vote_share[2] - vote_share[1],
+            cycle_weight = cycle_weight[1]) %>%
   mutate(party = ifelse(spread < 0, 'dem', 'rep')) %>%
   filter(!state == 'National') %>%
   ggplot(aes(x = cycle, y = spread)) +
   geom_hline(yintercept = 0) +
   geom_point(aes(color = party)) +
-  geom_smooth(method = 'lm', se = FALSE) +
+  geom_smooth(aes(weight = cycle_weight), method = 'lm', se = FALSE) +
   scale_color_manual(values = PARTY_COL) +
   coord_flip() +
   scale_x_reverse(breaks = seq(1972, 2028, 4)) +
   scale_y_continuous(breaks = seq(-1, 1, .25)) +
-  ggtitle('Spread of Presidential Elections since 1976 with Line of Best Fit') +
+  ggtitle('Spread of Presidential Elections since 1976 with Weighted Line of Best Fit') +
   labs(caption = 'Created by Andrew F. Griffin - 2021') +
   facet_wrap(. ~ state) +
   theme_DataStache() +
@@ -106,7 +107,7 @@ pres_results_prior %>%
                                    size = rel(2)),
         axis.text.y = element_text(size = rel(2)))
 
-ggsave("figs/state-election-spread-trends-fit.png",
+ggsave("figs/state-election-spread-trends-fit-weighted.png",
        width = p_width,
        dpi = "retina")
 
@@ -133,7 +134,8 @@ head(modeled_EV_state_spreads)
 
 vec_prior_ord <- modeled_EV_state_spreads %>%
   arrange(desc(spread_mu)) %>%
-  .$state
+  .$state %>%
+  unique(.)
 
 prior_party <- c('red4', 'purple2', 'blue4')
 
@@ -151,9 +153,9 @@ modeled_EV_state_spreads %>%
   geom_errorbar() +
   geom_point(shape = 23, size = 2, fill = 'yellow', color = 'black') +
   scale_y_continuous(breaks = seq(-1, 1, .05)) +
-  geom_text(aes(y = ifelse(state %in% c('District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), spread_end, spread_start)), 
-            hjust = ifelse(modeled_EV_state_spreads$state %in% c('District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), 0, 1), 
-            nudge_y = ifelse(modeled_EV_state_spreads$state %in% c('District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), .02, -.02),
+  geom_text(aes(y = ifelse(state %in% c('Mississippi', 'Kansas', 'Louisiana', 'Nebraska', 'Nebraska CD-1', 'South Dakota', 'District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), spread_end, spread_start)), 
+            hjust = ifelse(modeled_EV_state_spreads$state %in% c('Mississippi', 'Kansas', 'Louisiana', 'Nebraska', 'Nebraska CD-1', 'South Dakota','District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), 0, 1), 
+            nudge_y = ifelse(modeled_EV_state_spreads$state %in% c('Mississippi', 'Kansas', 'Louisiana', 'Nebraska', 'Nebraska CD-1', 'South Dakota','District of Columbia', 'Indiana', 'Nebraska CD-2', 'Montana', 'South Carolina', 'Missouri', 'Texas', 'Alaska', 'Georgia'), .02, -.02),
             size = 2) +
   scale_color_manual(values = prior_party) +
   coord_flip() +
@@ -166,7 +168,7 @@ modeled_EV_state_spreads %>%
         panel.grid.major.y = element_blank(),
         axis.text.y = element_blank())
 
-ggsave("figs/state-election-spread-vs-2020-outcome.png",
+ggsave("figs/state-election-spread-vs-2020-outcome-weighted.png",
        width = p_width,
        dpi = "retina")
 
@@ -243,7 +245,7 @@ dat <- modeled_EV_state_spreads %>%
   mutate(spread = ifelse(cycle == 2024, NA, spread))
 
 dat_blue <- dat %>%
-  filter(spread_mu < 0 | state == 'Ohio') %>%
+  filter(state != 'Arizona' & spread_mu < 0 | state == 'Maine CD-2') %>%
   mutate(party = case_when(spread_start > 0 & spread_end > 0 ~ 'rep',
                            spread_start < 0 & spread_end > 0 ~ 'toss',
                            spread_start < 0 & spread_end < 0 ~ 'dem'),
@@ -261,7 +263,8 @@ dat_blue %>%
   geom_hline(yintercept = -0.2, color = 'grey60', linetype = 2) +
   geom_hline(yintercept = c(-.1, .1), color = 'grey60', linetype = 2) +
   geom_errorbar(position = 'dodge') +
-  geom_point(aes(y = spread), shape = 23, fill = 'red', color = 'black') +
+  geom_point(size = .5) +
+  geom_point(aes(y = spread), shape = 23, size = 2, fill = 'yellow', color = 'black') +
   scale_y_continuous(breaks = seq(-1, 1, .05)) +
   geom_text(aes(y = ifelse(state == 'District of Columbia', spread_end, spread_start)),
             hjust = ifelse(dat_blue$state == 'District of Columbia', 0, 1),
@@ -290,7 +293,7 @@ ggsave("figs/blue-state-2024.png",
 
 # Visualize Forecasted Spread Changes - 2024 REPUBLICAN ------------------------
 dat_red <- dat %>%
-  filter(spread_mu > 0 & state != 'Ohio') %>%
+  filter(state != 'Maine CD-2' & spread_mu > 0 | state == 'Arizona') %>%
   mutate(party = case_when(spread_start > 0 & spread_end > 0 ~ 'rep',
                            spread_start < 0 & spread_end > 0 ~ 'toss',
                            spread_start < 0 & spread_end < 0 ~ 'dem'),
