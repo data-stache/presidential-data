@@ -21,7 +21,7 @@ PARTY_LEV <- c('dem', 'rep', 'other')
 
 # State Presidential Election Data ---------------------------------------------
 # Load Election Results since 1976
-pres_results_prior <- read.csv("data/potus_results_46_20_dem_rep_other.csv", stringsAsFactors = FALSE, header = TRUE) %>% 
+pres_results_prior <- read.csv("data/potus_results_76_20_tidy.csv", stringsAsFactors = FALSE, header = TRUE) %>% 
   # Remove X Column - not sure why it shows up
   select(-X) %>%
   # Arrange by election year, then by state
@@ -32,9 +32,6 @@ pres_results_prior <- read.csv("data/potus_results_46_20_dem_rep_other.csv", str
          cycle_weight = .5 ^ ((cycle_weight - 1) / 3))
 
 pres_results_prior <- pres_results_prior[, c(1, 12, 2:11)]
-
-pres_results_prior %>%
-  arrange(desc(cycle))
 
 # Election Summary Spread Statistics
 pres_results_prior %>%
@@ -52,6 +49,30 @@ pres_results_prior %>%
   kable()
 
 head(pres_results_prior)
+
+# Add National Spread
+dat_NAT <- pres_results_prior %>%
+  group_by(cycle, party) %>%
+  summarize(cycle_weight = cycle_weight[1],
+            state = 'National',
+            state_abb = 'NAT',
+            total_votes = sum(total_votes, na.rm = TRUE),
+            election_day = election_day[1],
+            incumbant_party = incumbant_party[1],
+            winning_party = winning_party[1],
+            state_winner = state_winner[1],
+            run_date = run_date[1]) %>%
+  ungroup() %>%
+  group_by(cycle) %>%
+  mutate(vote_share = total_votes / sum(total_votes)) %>%
+  select(cycle, cycle_weight, state, state_abb, party, vote_share, total_votes, election_day, incumbant_party, winning_party, state_winner, run_date)
+
+pres_results_prior <- pres_results_prior %>%
+  rbind(dat_NAT) %>%
+  arrange(cycle)
+
+pres_results_prior$total_votes[is.na(pres_results_prior$total_votes)] <- 0
+pres_results_prior$vote_share[is.na(pres_results_prior$vote_share)] <- 0
 
 save(pres_results_prior, file = 'rda/pres_results_prior.rda')
 
@@ -82,7 +103,7 @@ state_party_fit <- map_df(STATES, function(ST) {
                pred_se = pred$se.fit,
                pred_df = pred$df,
                pred_res = pred$residual.scale)
-  })
+})
 })
 
 # Clear Row Names
@@ -123,19 +144,19 @@ state_fit <- map_df(STATES, function(ST) {
     slice(1) %>%
     select(state, cycle, spread, cycle_weight) %>%
     lm(spread ~ cycle, weights = cycle_weight, data = .)
-  
+    
   data <- data.frame(state = paste(ST),
                      cycle = 2024)
-  
+    
   pred <- predict.lm(fit, data, se.fit = TRUE)
-  
+    
   data.frame(state = paste(ST),
              cycle = 2024,
              pred_vote_share = pred$fit,
              pred_se = pred$se.fit,
              pred_df = pred$df,
              pred_res = pred$residual.scale)
-})
+  })
 
 # Clear Row Names
 row.names(state_fit) <- c()
@@ -205,7 +226,7 @@ national_state_party_correlation <- dat_STATE_PARTY %>%
 # Visualize
 dat_STATE_PARTY %>%
   left_join(dat_NAT_PARTY) %>%
-  #  filter(party == 'REP') %>%
+#  filter(party == 'REP') %>%
   ggplot(aes(x = cycle, color = party)) +
   geom_line(aes(y = vote_share)) +
   geom_point(aes(y = vote_share)) +

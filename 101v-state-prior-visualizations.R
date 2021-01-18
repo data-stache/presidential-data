@@ -31,7 +31,7 @@ pres_results_prior %>%
   geom_hline(yintercept = 0, color = 'grey60') +
   geom_point() +
   scale_color_manual(values = PARTY_COL) +
-  scale_x_continuous(breaks = seq(1972, 2028, 4)) +
+  scale_x_continuous(breaks = seq(1948, 2028, 4)) +
   geom_smooth(method = 'lm', se = FALSE) +
   ggtitle('Share of Votes Received by Party in a Presidential Election',
           subtitle = 'States that the Republican Party Won in 2020') +
@@ -57,7 +57,7 @@ pres_results_prior %>%
   geom_point() +
   geom_line() +
   scale_color_manual(values = PARTY_COL) +
-  scale_x_continuous(breaks = seq(1972, 2028, 4)) +
+  scale_x_continuous(breaks = seq(1948, 2028, 4)) +
   geom_smooth(method = 'lm', se = FALSE) +
   ggtitle('Share of Votes Received by Party in a Presidential Election',
           subtitle = 'States that the Democratic Party Won in 2020') +
@@ -97,7 +97,7 @@ pres_results_prior %>%
   geom_smooth(aes(weight = cycle_weight), method = 'lm', se = FALSE) +
   scale_color_manual(values = PARTY_COL) +
   coord_flip() +
-  scale_x_reverse(breaks = seq(1972, 2028, 4)) +
+  scale_x_reverse(breaks = seq(1948, 2028, 4)) +
   scale_y_continuous(breaks = seq(-1, 1, .25)) +
   ggtitle('Spread of Presidential Elections since 1976 with Weighted Line of Best Fit') +
   labs(caption = 'Created by Andrew F. Griffin - 2021') +

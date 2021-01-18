@@ -162,7 +162,6 @@ pres_results_2020 <- pres_results_2020 %>%
   mutate(party = as.character(party))
 
 potus_results_46_20 <- pres_results_2020 %>%
-  rbind(pres_results_2020) %>%
   arrange(cycle)
 
 
