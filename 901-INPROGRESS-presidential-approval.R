@@ -119,6 +119,18 @@ approval_ratings <- approval_ratings %>%
   select(poll_id, run_date, field_date, start_date, end_date, president, pollster, fte_grade, sample_size, sample_half_life, population, pop_penalty, approve, disapprove, net_approve, weight, weight_sample, 
          weight_recent, weight_grade)
 
+approval_ratings %>%
+  group_by(president) %>%
+  summarize(r_approve_avg = mean(approve),
+            r_disapprove_avg = mean(disapprove),
+            r_net_approve_avg = mean(net_approve),
+            w_approve_avg = wtd.mean(approve, weight, na.rm = TRUE),
+            w_disapprove_avg = wtd.mean(disapprove, weight, na.rm = TRUE),
+            w_net_approve_avg = wtd.mean(net_approve, weight, na.rm = TRUE))
+
+
+
+# Visualize --------------------------------------------------------------------
 TOTAL_DAYS <- as.numeric(diff(range(approval_ratings$field_date)))
 SPAN <- 21 / TOTAL_DAYS
 
@@ -136,20 +148,21 @@ CI_DISAPPROVE <- approval_ratings %>%
             interval = qnorm(0.95) * se_hat) %>%
   .$interval
 
+CI_NET <- approval_ratings %>%
+  summarize(se_hat = sd(net_approve),
+            interval = qnorm(0.95) * se_hat) %>%
+  .$interval
+
 approval_ratings %>%
   mutate(smooth_approve = fit_approve$fitted,
-         smooth_disapprove = fit_disapprove$fitted) %>%
+         smooth_disapprove = fit_disapprove$fitted,
+         smooth_net = fit_net$fitted) %>%
   ggplot(aes(x = end_date)) +
+  geom_vline(xintercept = ymd(20201104)) +
   geom_ribbon(aes(ymin = smooth_approve - CI_APPROVE, ymax = smooth_approve + CI_APPROVE), color = 'green4', alpha = .15, size = 0) +
-  geom_ribbon(aes(ymin = smooth_disapprove - CI_DISAPPROVE, ymax = smooth_disapprove + CI_DISAPPROVE), color = 'red4', alpha = .15, size = 0) +
+  geom_ribbon(aes(ymin = smooth_disapprove - CI_DISAPPROVE, ymax = smooth_disapprove + CI_DISAPPROVE), color = 'red3', alpha = .15, size = 0) +
   geom_line(aes(y = smooth_approve), color = 'green4', size = 1.2) +
   geom_point(aes(y = approve), color = 'green4', alpha = .1) +
-  geom_line(aes(y = smooth_disapprove), color = 'red4', size = 1.2) +
-  geom_point(aes(y = disapprove), color = 'red4', alpha = .1)
-  
-approval_ratings %>%
-  group_by(president) %>%
-  summarize(approve_avg = wtd.mean(approve, weight, na.rm = TRUE),
-            disapprove_avg = wtd.mean(disapprove, weight, na.rm = TRUE),
-            net_approve_avg = wtd.mean(net_approve, weight, na.rm = TRUE))
+  geom_line(aes(y = smooth_disapprove), color = 'red3', size = 1.2) +
+  geom_point(aes(y = disapprove), color = 'red3', alpha = .1)
   

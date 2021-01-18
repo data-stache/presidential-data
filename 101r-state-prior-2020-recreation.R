@@ -84,7 +84,7 @@ modeled_EV_state_outcome_party <- state_party_fit %>%
 
 head(modeled_EV_state_outcome_party)
 
-
+modeled_EV_state_outcome_party_2020 <- modeled_EV_state_outcome_party
 
 # State Level Spread Linear Models ---------------------------------------------
 # Unique States
